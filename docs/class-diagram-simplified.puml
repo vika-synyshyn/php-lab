@@ -1,0 +1,230 @@
+@startuml
+!pragma layout smetana
+
+top to bottom direction
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam linetype polyline
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam packageStyle rectangle
+skinparam ArrowColor #61798A
+skinparam ClassBorderColor #517D95
+skinparam ClassBackgroundColor #EDF6FA
+skinparam ClassFontColor #203B4E
+skinparam PackageBorderColor #9BB3C2
+hide empty methods
+hide circle
+
+package "1. Облікові записи та модерація" #F5F8FC {
+  class "User\n(users)" as User {
+    +id: BIGINT <<PK>>
+    --
+    full_name: VARCHAR
+    email: VARCHAR
+    role: ENUM
+    --
+    +isAdmin(): bool
+    +bookings(): Collection
+  }
+
+  class "TourModerationRecord\n(tour_moderation_records)" as Moderation {
+    +id: BIGINT <<PK>>
+    --
+    tour_id: BIGINT <<FK>>
+    moderator_id: BIGINT <<FK>>
+    decision: ENUM
+    --
+    +approve(): bool
+    +reject(reason: string): bool
+  }
+}
+
+package "2. Каталог та організація турів" #F4FAF8 {
+  class "TourCategory\n(tour_categories)" as Category {
+    +id: BIGINT <<PK>>
+    --
+    name: VARCHAR
+    --
+    +tours(): Collection
+    +rename(name: string): void
+  }
+
+  class "Destination\n(destinations)" as Destination {
+    +id: BIGINT <<PK>>
+    --
+    country: VARCHAR
+    region: VARCHAR
+    city: VARCHAR
+    --
+    +tours(): Collection
+    +getFullName(): string
+  }
+
+  class "Hotel\n(hotels)" as Hotel {
+    +id: BIGINT <<PK>>
+    --
+    destination_id: BIGINT <<FK>>
+    name: VARCHAR
+    stars: INT
+    --
+    +destination(): Destination
+    +tours(): Collection
+  }
+
+  class "Tour\n(tours)" as Tour {
+    +id: BIGINT <<PK>>
+    --
+    manager_id: BIGINT <<FK>>
+    category_id: BIGINT <<FK>>
+    destination_id: BIGINT <<FK>>
+    title: VARCHAR
+    status: ENUM
+    --
+    +departures(): Collection
+    +submitForModeration(): bool
+  }
+
+  class "TourHotel\n(tour_hotels)" as TourHotel {
+    +tour_id: BIGINT <<PK, FK>>
+    +hotel_id: BIGINT <<PK, FK>>
+    --
+    +tour(): Tour
+    +hotel(): Hotel
+  }
+
+  class "ItineraryDay\n(itinerary_days)" as Itinerary {
+    +id: BIGINT <<PK>>
+    --
+    tour_id: BIGINT <<FK>>
+    day_number: INT
+    title: VARCHAR
+    --
+    +tour(): Tour
+    +updateActivities(text: string): void
+  }
+
+  class "TourDeparture\n(tour_departures)" as Departure {
+    +id: BIGINT <<PK>>
+    --
+    tour_id: BIGINT <<FK>>
+    departure_date: DATE
+    capacity: INT
+    available_places: INT
+    --
+    +hasPlaces(count: int): bool
+    +reserve(count: int): bool
+  }
+}
+
+package "3. Бронювання та оплати" #FFFAF3 {
+  class "Booking\n(bookings)" as Booking {
+    +id: BIGINT <<PK>>
+    --
+    user_id: BIGINT <<FK>>
+    tour_departure_id: BIGINT <<FK>>
+    booking_code: VARCHAR
+    status: ENUM
+    --
+    +travelers(): Collection
+    +cancel(): bool
+  }
+
+  class "Traveler\n(travelers)" as Traveler {
+    +id: BIGINT <<PK>>
+    --
+    booking_id: BIGINT <<FK>>
+    first_name: VARCHAR
+    last_name: VARCHAR
+    --
+    +getFullName(): string
+    +isAdult(): bool
+  }
+
+  class "Payment\n(payments)" as Payment {
+    +id: BIGINT <<PK>>
+    --
+    booking_id: BIGINT <<FK>>
+    amount: DECIMAL
+    status: ENUM
+    --
+    +markPaid(): bool
+    +isPaid(): bool
+  }
+}
+
+package "4. Контролери MVC" #F4F4FC {
+  abstract class "Controller" as Controller {
+    #request: Request
+    #response: Response
+    --
+    #authorize(action: string): bool
+    #render(view: string): View
+  }
+
+  class "TourController" as TourController {
+    -tour: Tour
+    -departure: TourDeparture
+    --
+    +index(filters: array): View
+    +show(id: int): View
+  }
+
+  class "BookingController" as BookingController {
+    -booking: Booking
+    -payment: Payment
+    --
+    +store(data: array): RedirectResponse
+    +cancel(id: int): RedirectResponse
+  }
+
+  class "TourModerationController" as ModerationController {
+    -record: TourModerationRecord
+    -tour: Tour
+    --
+    +approve(tourId: int): RedirectResponse
+    +reject(tourId: int, reason: string): RedirectResponse
+  }
+}
+
+' Каркас компонування
+User -[hidden]right-> Moderation
+Category -[hidden]right-> Destination
+Destination -[hidden]right-> Hotel
+Itinerary -[hidden]right-> TourHotel
+TourHotel -[hidden]right-> Departure
+Traveler -[hidden]right-> Payment
+
+' Основні асоціації
+User "1" -- "0..*" Tour : керує
+Category "1" -- "0..*" Tour : категорія
+Destination "1" -- "0..*" Tour : напрямок
+Destination "1" -- "0..*" Hotel : розташування
+User "1" -- "0..*" Booking : оформлює
+Departure "1" -- "0..*" Booking : бронюється
+Booking "1" -- "0..*" Payment : оплати
+User "1" -- "0..*" Moderation : ухвалює рішення
+Tour "1" -- "0..*" Moderation : історія модерації
+
+' Композиції
+Tour "1" *-- "0..*" Departure : виїзди
+Tour "1" *-- "0..*" Itinerary : дні програми
+Booking "1" *-- "1..*" Traveler : учасники
+
+' Агрегація і таблиця-зв’язка
+Tour "0..*" o-- "0..*" Hotel : готелі туру
+(Tour, Hotel) .. TourHotel
+
+' Наслідування
+Controller <|-- TourController
+Controller <|-- BookingController
+Controller <|-- ModerationController
+
+' Залежності MVC
+TourController ..> Tour : використовує
+BookingController ..> Booking : опрацьовує
+ModerationController ..> Moderation : модерує
+
+@enduml

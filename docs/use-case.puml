@@ -1,0 +1,234 @@
+
+@startuml
+
+left to right direction
+
+' ==============================================
+' ОФОРМЛЕННЯ ДІАГРАМИ
+' ==============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle stickman
+skinparam defaultFontName "DejaVu Sans"
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 35
+skinparam ranksep 45
+skinparam ArrowColor #64748B
+
+skinparam usecase {
+  BackgroundColor #D5F5EE
+  BorderColor #55B7A5
+  FontColor #173E3A
+}
+
+skinparam actor {
+  BorderColor #475569
+  FontColor #334155
+}
+
+skinparam rectangle {
+  BorderColor #94A3B8
+  FontColor #1E293B
+}
+
+title Повна UML-діаграма варіантів використання\nЕлектронна система для туристичного оператора
+
+' ==============================================
+' АКТОРИ
+' ==============================================
+
+actor "Турист" as Tourist
+actor "Менеджер\nтуроператора" as Manager
+actor "Адміністратор" as Admin
+
+' ==============================================
+' МЕЖА СИСТЕМИ
+' ==============================================
+
+rectangle "Електронна система для туристичного оператора" {
+
+  ' ============================================
+  ' 1. КАТАЛОГ І БРОНЮВАННЯ
+  ' ============================================
+
+  package "1. Каталог і бронювання" #F1FAF8 {
+
+    usecase "Шукати тури" as UC_Search
+
+    usecase "Переглядати програму\nта доступні виїзди" as UC_ViewTour
+
+    usecase "Оформити\nбронювання" as UC_Book
+
+    usecase "Переглядати власні\nбронювання" as UC_MyBookings
+
+    usecase "Подати запит\nна скасування" as UC_RequestCancel
+
+    usecase "Застосувати\nфільтри" as UC_Filter
+
+    usecase "Обрати виїзд" as UC_SelectDeparture
+
+    usecase "Указати учасників\nподорожі" as UC_Travelers
+
+    usecase "Перевірити\nнаявність місць" as UC_CheckSeats
+
+    usecase "Розрахувати\nвартість" as UC_Price
+  }
+
+  ' ============================================
+  ' 2. КЕРУВАННЯ ТУРАМИ ТА ЗАЯВКАМИ
+  ' ============================================
+
+  package "2. Керування турами та заявками" #F3F8FF {
+
+    usecase "Створити та\nредагувати тур" as UC_ManageTour
+
+    usecase "Створити виїзд" as UC_CreateDeparture
+
+    usecase "Змінити або\nзакрити виїзд" as UC_UpdateDeparture
+
+    usecase "Установити дату,\nціну та квоту" as UC_SetDeparture
+
+    usecase "Подати тур\nна модерацію" as UC_SubmitTour
+
+    usecase "Перевірити\nготовність туру" as UC_ValidateTour
+
+    usecase "Опрацювати\nбронювання" as UC_ProcessBooking
+
+    usecase "Підтвердити\nбронювання" as UC_Confirm
+
+    usecase "Відхилити\nбронювання" as UC_Reject
+
+    usecase "Зафіксувати\nотриману оплату" as UC_RecordPayment
+
+    usecase "Розглянути запит\nна скасування" as UC_ReviewCancel
+
+    usecase "Перевірити умови\nскасування" as UC_CheckRules
+
+    usecase "Виконати\nскасування" as UC_ExecuteCancel
+  }
+
+  ' ============================================
+  ' 3. МОДЕРАЦІЯ ТА АДМІНІСТРУВАННЯ
+  ' ============================================
+
+  package "3. Модерація та адміністрування" #FFF9F0 {
+
+    usecase "Модерувати тур" as UC_Moderate
+
+    usecase "Перевірити зміст\nта умови туру" as UC_ReviewTour
+
+    usecase "Ухвалити рішення\nщодо туру" as UC_DecideTour
+
+    usecase "Схвалити тур\nдля публікації" as UC_ApproveTour
+
+    usecase "Відхилити тур\nіз зазначенням причини" as UC_RejectTour
+
+    usecase "Зафіксувати рішення\nмодерації" as UC_LogDecision
+
+    usecase "Керувати користувачами\nта правами доступу" as UC_Users
+
+    usecase "Керувати\nдовідниками" as UC_Dictionaries
+
+    usecase "Переглядати звіти\nта аналітику" as UC_Reports
+  }
+}
+
+' ==============================================
+' АСОЦІАЦІЇ АКТОРІВ
+' ==============================================
+
+' ТУРИСТ
+
+Tourist -- UC_Search
+Tourist -- UC_ViewTour
+Tourist -- UC_Book
+Tourist -- UC_MyBookings
+Tourist -- UC_RequestCancel
+
+' МЕНЕДЖЕР
+
+Manager -- UC_ManageTour
+Manager -- UC_CreateDeparture
+Manager -- UC_UpdateDeparture
+Manager -- UC_SubmitTour
+Manager -- UC_ProcessBooking
+Manager -- UC_RecordPayment
+Manager -- UC_ReviewCancel
+
+' АДМІНІСТРАТОР
+
+Admin -- UC_Moderate
+Admin -- UC_Users
+Admin -- UC_Dictionaries
+Admin -- UC_Reports
+
+' ==============================================
+' INCLUDE - ОБОВ'ЯЗКОВІ ПІДСЦЕНАРІЇ
+' ==============================================
+
+' Оформлення бронювання
+
+UC_Book ..> UC_SelectDeparture : <<include>>
+
+UC_Book ..> UC_Travelers : <<include>>
+
+UC_Book ..> UC_CheckSeats : <<include>>
+
+UC_Book ..> UC_Price : <<include>>
+
+' Створення виїзду
+
+UC_CreateDeparture ..> UC_SetDeparture : <<include>>
+
+' Подання туру на модерацію
+
+UC_SubmitTour ..> UC_ValidateTour : <<include>>
+
+' Опрацювання запиту на скасування
+
+UC_ReviewCancel ..> UC_CheckRules : <<include>>
+
+' Модерація туристичного туру
+
+UC_Moderate ..> UC_ReviewTour : <<include>>
+
+UC_Moderate ..> UC_DecideTour : <<include>>
+
+UC_DecideTour ..> UC_LogDecision : <<include>>
+
+' ==============================================
+' EXTEND - УМОВНІ СЦЕНАРІЇ
+' ==============================================
+
+' Фільтрація виконується за бажанням туриста
+
+UC_Filter ..> UC_Search : <<extend>>
+
+' Запит на скасування доступний за умовами броні
+
+UC_RequestCancel ..> UC_MyBookings : <<extend>>
+
+' Скасування виконується після погодження запиту
+
+UC_ExecuteCancel ..> UC_ReviewCancel : <<extend>>
+
+' ==============================================
+' GENERALIZATION - УЗАГАЛЬНЕННЯ
+' ==============================================
+
+' Рішення менеджера щодо бронювання
+
+UC_Confirm --|> UC_ProcessBooking
+
+UC_Reject --|> UC_ProcessBooking
+
+' Рішення адміністратора щодо туру
+
+UC_ApproveTour --|> UC_DecideTour
+
+UC_RejectTour --|> UC_DecideTour
+
+@enduml
