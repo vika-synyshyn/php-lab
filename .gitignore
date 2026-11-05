@@ -16,3 +16,6 @@ Thumbs.db
 # Test and coverage results
 /coverage/
 .phpunit.result.cache
+
+# Application logs
+/storage/logs/*.log
