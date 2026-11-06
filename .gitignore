@@ -19,3 +19,21 @@ Thumbs.db
 
 # Application logs
 /storage/logs/*.log
+
+# Laravel temporary installation
+/temp_laravel/
+
+# Laravel dependencies and generated files
+/node_modules/
+/public/build
+/public/hot
+/bootstrap/cache/*.php
+/storage/logs/*.log
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/
+/.phpunit.cache
+
+# Local databases
+/database/*.sqlite
+/database/*.sqlite-*
