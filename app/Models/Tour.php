@@ -1,32 +1,61 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Models;
 
-use App\Interfaces\ExportableInterface;
-use App\Traits\JsonExportTrait;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Tour extends AbstractEntity implements ExportableInterface
+class Tour extends Model
 {
-    use JsonExportTrait;
+    use HasFactory;
 
-    public function __construct(
-        string $id,
-        string $createdAt,
-        private string $destination,
-        private float $price
-    ) {
-        parent::__construct($id, $createdAt);
+    protected $fillable = [
+        'manager_id',
+        'category_id',
+        'destination_id',
+        'title',
+        'description',
+        'duration_days',
+        'base_price',
+        'status',
+    ];
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
     }
 
-    public function getDetails(): string
+    public function category(): BelongsTo
     {
-        return sprintf(
-            'Тур #%s: %s, ціна: %.2f грн',
-            $this->id,
-            $this->destination,
-            $this->price
-        );
+        return $this->belongsTo(TourCategory::class, 'category_id');
+    }
+
+    public function destination(): BelongsTo
+    {
+        return $this->belongsTo(Destination::class);
+    }
+
+    public function departures(): HasMany
+    {
+        return $this->hasMany(TourDeparture::class);
+    }
+
+    public function itineraryDays(): HasMany
+    {
+        return $this->hasMany(ItineraryDay::class);
+    }
+
+    public function hotels(): BelongsToMany
+    {
+        return $this->belongsToMany(Hotel::class, 'tour_hotels')
+            ->withTimestamps();
+    }
+
+    public function moderationRecords(): HasMany
+    {
+        return $this->hasMany(TourModerationRecord::class);
     }
 }
