@@ -4,17 +4,37 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Destination;
+use App\Models\TourCategory;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class TourAccessTest extends TestCase
 {
+    use RefreshDatabase;
+
     private function validTourData(): array
     {
+        $manager = User::factory()->create([
+            'role' => 'manager',
+        ]);
+
+        $category = TourCategory::create([
+            'name' => 'Екскурсійні',
+        ]);
+
+        $destination = Destination::create([
+            'country' => 'Франція',
+            'region' => 'Іль-де-Франс',
+            'city' => 'Париж',
+        ]);
+
         return [
             'title' => 'Подорож до Парижа',
-            'manager_id' => 1,
-            'category_id' => 2,
-            'destination_id' => 4,
+            'manager_id' => $manager->id,
+            'category_id' => $category->id,
+            'destination_id' => $destination->id,
             'duration_days' => 7,
             'base_price' => 18900,
         ];
@@ -59,21 +79,25 @@ class TourAccessTest extends TestCase
                 'X-Security-Policy',
                 'TourManagerVerified'
             );
+
+        $this->assertDatabaseHas('tours', [
+            'title' => 'Подорож до Парижа',
+            'status' => 'draft',
+        ]);
     }
 
     // Некоректні дані повинні відхилятися
     public function test_invalid_tour_data_is_rejected(): void
     {
+        $data = $this->validTourData();
+
+        $data['title'] = 'A';
+        $data['duration_days'] = -5;
+        $data['base_price'] = -100;
+
         $response = $this->withHeaders([
             'X-Tour-Role' => 'manager',
-        ])->postJson('/tours', [
-            'title' => 'A',
-            'manager_id' => 1,
-            'category_id' => 2,
-            'destination_id' => 4,
-            'duration_days' => -5,
-            'base_price' => -100,
-        ]);
+        ])->postJson('/tours', $data);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors([
