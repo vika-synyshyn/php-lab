@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\TourController;
+use App\Http\Controllers\TourModerationController;
 use App\Http\Controllers\TourSearchController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,7 +13,7 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-// Службовий маршрут перевірки стану системи
+// Перевірка стану системи
 Route::get('/health', function () {
     return response()->json([
         'status' => 'OK',
@@ -20,24 +22,42 @@ Route::get('/health', function () {
     ], 200);
 })->name('health');
 
-// Маршрути електронної системи туристичного оператора
+// Маршрути туристичних пропозицій
 Route::prefix('tours')->name('tours.')->group(function () {
 
-    // Пошук і фільтрація туристичних пропозицій
     Route::get('/search', [TourSearchController::class, 'search'])
         ->name('search');
 
-    // Отримання списку туристичних пропозицій
     Route::get('/', [TourController::class, 'index'])
         ->name('index');
 
-    // Створення нової туристичної пропозиції
     Route::post('/', [TourController::class, 'store'])
         ->middleware('tour.manager')
         ->name('store');
 
-    // Перегляд конкретного туру за числовим ID
+    Route::get('/{id}/moderation', [TourModerationController::class, 'index'])
+        ->whereNumber('id')
+        ->name('moderation.index');
+
+    Route::post('/{id}/moderation', [TourModerationController::class, 'store'])
+        ->whereNumber('id')
+        ->name('moderation.store');
+
     Route::get('/{id}', [TourController::class, 'show'])
+        ->whereNumber('id')
+        ->name('show');
+});
+
+// Маршрути бронювань
+Route::prefix('bookings')->name('bookings.')->group(function () {
+
+    Route::get('/', [BookingController::class, 'index'])
+        ->name('index');
+
+    Route::post('/', [BookingController::class, 'store'])
+        ->name('store');
+
+    Route::get('/{id}', [BookingController::class, 'show'])
         ->whereNumber('id')
         ->name('show');
 });

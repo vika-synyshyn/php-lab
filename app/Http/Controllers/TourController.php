@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 
 class TourController extends Controller
 {
-    // GET /tours - отримання всіх турів
+    // GET /tours
     public function index(): JsonResponse
     {
         $tours = Tour::with(['manager', 'category', 'destination'])->get();
@@ -22,7 +22,7 @@ class TourController extends Controller
         ], 200);
     }
 
-    // GET /tours/{id} - перегляд конкретного туру
+    // GET /tours/{id}
     public function show(string $id): JsonResponse
     {
         $tour = Tour::with([
@@ -46,7 +46,7 @@ class TourController extends Controller
         ], 200);
     }
 
-    // POST /tours - створення нового туру
+    // POST /tours
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -57,11 +57,20 @@ class TourController extends Controller
             'duration_days' => ['required', 'integer', 'min:1'],
             'base_price' => ['required', 'numeric', 'min:0'],
             'description' => ['nullable', 'string'],
+            'hotel_ids' => ['sometimes', 'array'],
+            'hotel_ids.*' => ['integer', 'distinct', 'exists:hotels,id'],
         ]);
+
+        $hotelIds = $validated['hotel_ids'] ?? [];
+        unset($validated['hotel_ids']);
 
         $validated['status'] = 'draft';
 
         $newTour = Tour::create($validated);
+
+        $newTour->hotels()->sync($hotelIds);
+
+        $newTour->load(['category', 'destination', 'hotels']);
 
         return response()->json([
             'status' => 'created',
