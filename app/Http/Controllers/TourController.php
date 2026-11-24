@@ -4,50 +4,65 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Destination;
+use App\Models\Hotel;
 use App\Models\Tour;
-use Illuminate\Http\JsonResponse;
+use App\Models\TourCategory;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 class TourController extends Controller
 {
-    // GET /tours
-    public function index(): JsonResponse
+    public function index(Request $request): View
     {
-        $tours = Tour::with(['manager', 'category', 'destination'])->get();
+        $query = Tour::with(['manager', 'category', 'destination', 'hotels']);
 
-        return response()->json([
-            'status' => 'success',
-            'count' => $tours->count(),
-            'data' => $tours,
-        ], 200);
+        if (! in_array($request->user()?->role, ['manager', 'admin'])) {
+            $query->where('status', 'published');
+        }
+
+        $tours = $query->orderBy('id', 'desc')->paginate(10);
+
+        return view('tours.index', compact('tours'));
     }
 
-    // GET /tours/{id}
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): View
     {
-        $tour = Tour::with([
+        $query = Tour::with([
             'manager',
             'category',
             'destination',
             'hotels',
             'itineraryDays',
-        ])->find($id);
+        ]);
 
-        if (! $tour) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Тур із зазначеним ID не знайдено.',
-            ], 404);
+        if (! in_array($request->user()?->role, ['manager', 'admin'])) {
+            $query->where('status', 'published');
         }
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $tour,
-        ], 200);
+        $tour = $query->findOrFail($id);
+
+        return view('tours.show', compact('tour'));
     }
 
-    // POST /tours
-    public function store(Request $request): JsonResponse
+    public function create(): View
+    {
+        $managers = User::where('role', 'manager')->get();
+        $categories = TourCategory::orderBy('name')->get();
+        $destinations = Destination::orderBy('country')->get();
+        $hotels = Hotel::orderBy('name')->get();
+
+        return view('tours.create', compact(
+            'managers',
+            'categories',
+            'destinations',
+            'hotels'
+        ));
+    }
+
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'min:3', 'max:255'],
@@ -67,15 +82,62 @@ class TourController extends Controller
         $validated['status'] = 'draft';
 
         $newTour = Tour::create($validated);
-
         $newTour->hotels()->sync($hotelIds);
 
-        $newTour->load(['category', 'destination', 'hotels']);
+        return redirect()->route('tours.index')
+            ->with('success', 'Туристичну пропозицію успішно створено!');
+    }
 
-        return response()->json([
-            'status' => 'created',
-            'message' => 'Туристичну пропозицію успішно сформовано.',
-            'data' => $newTour,
-        ], 201);
+    public function edit(string $id): View
+    {
+        $tour = Tour::with('hotels')->findOrFail($id);
+
+        $managers = User::where('role', 'manager')->get();
+        $categories = TourCategory::orderBy('name')->get();
+        $destinations = Destination::orderBy('country')->get();
+        $hotels = Hotel::orderBy('name')->get();
+
+        return view('tours.edit', compact(
+            'tour',
+            'managers',
+            'categories',
+            'destinations',
+            'hotels'
+        ));
+    }
+
+    public function update(Request $request, string $id): RedirectResponse
+    {
+        $tour = Tour::findOrFail($id);
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'min:3', 'max:255'],
+            'manager_id' => ['required', 'integer', 'exists:users,id'],
+            'category_id' => ['required', 'integer', 'exists:tour_categories,id'],
+            'destination_id' => ['required', 'integer', 'exists:destinations,id'],
+            'duration_days' => ['required', 'integer', 'min:1'],
+            'base_price' => ['required', 'numeric', 'min:0'],
+            'description' => ['nullable', 'string'],
+            'hotel_ids' => ['sometimes', 'array'],
+            'hotel_ids.*' => ['integer', 'distinct', 'exists:hotels,id'],
+        ]);
+
+        $hotelIds = $validated['hotel_ids'] ?? [];
+        unset($validated['hotel_ids']);
+
+        $tour->update($validated);
+        $tour->hotels()->sync($hotelIds);
+
+        return redirect()->route('tours.index')
+            ->with('success', 'Туристичну пропозицію успішно оновлено!');
+    }
+
+    public function destroy(string $id): RedirectResponse
+    {
+        $tour = Tour::findOrFail($id);
+        $tour->delete();
+
+        return redirect()->route('tours.index')
+            ->with('success', 'Туристичну пропозицію успішно видалено!');
     }
 }

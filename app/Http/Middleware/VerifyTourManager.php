@@ -12,21 +12,10 @@ class VerifyTourManager
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Перевірка ролі під час створення туристичного туру
-        if (
-            $request->isMethod('post') &&
-            $request->header('X-Tour-Role') !== 'manager'
-        ) {
-            return response()->json([
-                'status' => 'access_denied',
-                'message' => 'Створювати туристичні пропозиції може лише менеджер.',
-            ], 403);
-        }
+        abort_unless($request->user()?->role === 'manager', 403);
 
-        // Передавання дозволеного запиту наступному компоненту
         $response = $next($request);
 
-        // Додавання службового заголовка до відповіді
         $response->headers->set(
             'X-Security-Policy',
             'TourManagerVerified'
