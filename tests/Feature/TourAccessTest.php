@@ -40,26 +40,26 @@ class TourAccessTest extends TestCase
         ];
     }
 
-    // Запит без ролі повинен блокуватися
+    // Неавтентифікований користувач не може створювати тури
     public function test_request_without_role_is_blocked(): void
     {
-        $response = $this->postJson(
+        $response = $this->post(
             '/tours',
             $this->validTourData()
         );
 
-        $response->assertStatus(403)
-            ->assertJson([
-                'status' => 'access_denied',
-            ]);
+        $response->assertStatus(403);
     }
 
-    // Турист не може створювати тури
+    // Клієнт не може створювати тури
     public function test_tourist_cannot_create_tour(): void
     {
-        $response = $this->withHeaders([
-            'X-Tour-Role' => 'tourist',
-        ])->postJson('/tours', $this->validTourData());
+        $customer = User::factory()->create([
+            'role' => 'customer',
+        ]);
+
+        $response = $this->actingAs($customer)
+            ->post('/tours', $this->validTourData());
 
         $response->assertStatus(403);
     }
@@ -67,14 +67,15 @@ class TourAccessTest extends TestCase
     // Менеджер може створювати тури
     public function test_manager_can_create_tour(): void
     {
-        $response = $this->withHeaders([
-            'X-Tour-Role' => 'manager',
-        ])->postJson('/tours', $this->validTourData());
+        $data = $this->validTourData();
 
-        $response->assertStatus(201)
-            ->assertJsonPath('status', 'created')
-            ->assertJsonPath('data.title', 'Подорож до Парижа')
-            ->assertJsonPath('data.status', 'draft')
+        $manager = User::findOrFail($data['manager_id']);
+
+        $response = $this->actingAs($manager)
+            ->post('/tours', $data);
+
+        $response->assertRedirect(route('tours.index'))
+            ->assertSessionHas('success')
             ->assertHeader(
                 'X-Security-Policy',
                 'TourManagerVerified'
@@ -91,28 +92,33 @@ class TourAccessTest extends TestCase
     {
         $data = $this->validTourData();
 
+        $manager = User::findOrFail($data['manager_id']);
+
         $data['title'] = 'A';
         $data['duration_days'] = -5;
         $data['base_price'] = -100;
 
-        $response = $this->withHeaders([
-            'X-Tour-Role' => 'manager',
-        ])->postJson('/tours', $data);
+        $response = $this->actingAs($manager)
+            ->from(route('tours.create'))
+            ->post('/tours', $data);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors([
+        $response->assertRedirect(route('tours.create'))
+            ->assertSessionHasErrors([
                 'title',
                 'duration_days',
                 'base_price',
             ]);
+
+        $this->assertDatabaseMissing('tours', [
+            'title' => 'A',
+        ]);
     }
 
     // Неіснуючий тур повертає 404
     public function test_nonexistent_tour_returns_404(): void
     {
-        $response = $this->getJson('/tours/999');
+        $response = $this->get('/tours/999');
 
-        $response->assertStatus(404)
-            ->assertJsonPath('status', 'error');
+        $response->assertStatus(404);
     }
 }

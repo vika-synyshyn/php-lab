@@ -22,16 +22,18 @@ class TourDatabaseTest extends TestCase
             'name' => 'Екскурсійні',
         ]);
 
-        $tour = Tour::factory()->create([
+        Tour::factory()->create([
             'category_id' => $category->id,
             'title' => 'Подорож до Карпат',
+            'status' => 'published',
         ]);
 
-        $response = $this->getJson('/tours');
+        $response = $this->get('/tours');
 
         $response->assertStatus(200)
-            ->assertJsonFragment(['title' => 'Подорож до Карпат'])
-            ->assertJsonFragment(['name' => 'Екскурсійні']);
+            ->assertViewIs('tours.index')
+            ->assertSee('Подорож до Карпат')
+            ->assertSee('Екскурсійні');
     }
 
     public function test_can_create_tour_with_hotels_in_database(): void
@@ -57,12 +59,11 @@ class TourDatabaseTest extends TestCase
             'hotel_ids' => $hotels->pluck('id')->all(),
         ];
 
-        $response = $this->withHeaders([
-            'X-Tour-Role' => 'manager',
-        ])->postJson('/tours', $payload);
+        $response = $this->actingAs($manager)
+            ->post('/tours', $payload);
 
-        $response->assertStatus(201)
-            ->assertJsonPath('status', 'created');
+        $response->assertRedirect(route('tours.index'))
+            ->assertSessionHas('success');
 
         $this->assertDatabaseHas('tours', [
             'title' => 'Новий туристичний тур',
@@ -70,11 +71,12 @@ class TourDatabaseTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $tourId = $response->json('data.id');
+        $tour = Tour::where('title', 'Новий туристичний тур')
+            ->firstOrFail();
 
         foreach ($hotels as $hotel) {
             $this->assertDatabaseHas('tour_hotels', [
-                'tour_id' => $tourId,
+                'tour_id' => $tour->id,
                 'hotel_id' => $hotel->id,
             ]);
         }
